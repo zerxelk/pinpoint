@@ -1,0 +1,22 @@
+# Python / backend
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Node / frontend
+node_modules/
+dist/
+build/
+
+# Tauri
+src-tauri/target/
+
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+backend/places.db
