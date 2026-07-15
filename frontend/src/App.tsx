@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -134,6 +135,11 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // getCurrentWindow() reads Tauri's injected window internals, which don't
+    // exist when this is just loaded in a plain browser tab (e.g. `npm run dev`
+    // opened directly) — without this guard it throws synchronously here and
+    // React unmounts the whole <App>, rendering a blank page.
+    if (!isTauri()) return;
     let unlisten: (() => void) | undefined;
     getCurrentWindow()
       .onCloseRequested(async (event) => {
