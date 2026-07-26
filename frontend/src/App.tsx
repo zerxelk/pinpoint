@@ -78,6 +78,10 @@ function App() {
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [appStatus, setAppStatus] = useState<AppStatus | null>(null);
+  const [backendReady, setBackendReady] = useState(false);
+  const [backendProgress, setBackendProgress] = useState(0);
+  const [backendFailed, setBackendFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [spoofingAt, setSpoofingAt] = useState<string | null>(null);
   const [tunnelStarting, setTunnelStarting] = useState(false);
   const [tunnelStopping, setTunnelStopping] = useState(false);
@@ -246,11 +250,61 @@ function App() {
     }
   }
 
+  // Poll /health until the backend sidecar is up, driving a progress bar in the
+  // meantime. The bundled PyInstaller binary takes ~6s to boot on a warm launch
+  // and up to ~20s on the very first launch after install (Gatekeeper scan +
+  // cold disk cache). Without this, every /status and /places call fails silently
+  // during that window and the app just looks dead — so we gate the UI on it.
   useEffect(() => {
+    let cancelled = false;
+    const startedAt = Date.now();
+    const TAU = 3000; // shapes how fast the bar creeps up
+    const FAIL_AFTER = 45000; // give up and offer a retry past this
+
+    // Asymptotic creep toward 99% — honest about not being done, and it never
+    // stalls at a fixed ceiling even if boot runs long. It snaps to 100% only
+    // when /health actually answers.
+    const progressTimer = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      setBackendProgress(Math.min(99, 100 * (1 - Math.exp(-elapsed / TAU))));
+    }, 100);
+
+    async function poll() {
+      while (!cancelled) {
+        try {
+          const r = await fetch(`${API}/health`);
+          if (r.ok) {
+            if (cancelled) return;
+            clearInterval(progressTimer);
+            setBackendProgress(100);
+            setBackendReady(true);
+            return;
+          }
+        } catch {}
+        if (Date.now() - startedAt > FAIL_AFTER) {
+          clearInterval(progressTimer);
+          if (!cancelled) setBackendFailed(true);
+          return;
+        }
+        await new Promise((res) => setTimeout(res, 300));
+      }
+    }
+    poll();
+    return () => { cancelled = true; clearInterval(progressTimer); };
+  }, [retryKey]);
+
+  function retryBackend() {
+    setBackendFailed(false);
+    setBackendProgress(0);
+    setRetryKey((k) => k + 1);
+  }
+
+  useEffect(() => {
+    if (!backendReady) return;
     refreshStatus();
     const id = setInterval(refreshStatus, 3000);
     return () => clearInterval(id);
-  }, []);
+  }, [backendReady]);
 
   async function fetchPlaces() {
     try {
@@ -467,6 +521,33 @@ function App() {
 
   return (
     <div className="app">
+      {!backendReady && (
+        <div className="boot-overlay">
+          <div className="boot-card">
+            <span className="boot-logo"><PinIcon /></span>
+            <h2 className="boot-title">Pinpoint</h2>
+            {backendFailed ? (
+              <>
+                <p className="boot-error">
+                  The engine didn’t start in time. It may have failed to launch —
+                  try again, or restart the app.
+                </p>
+                <button className="btn btn-primary boot-retry" onClick={retryBackend}>
+                  Retry
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="boot-status">Starting engine…</p>
+                <div className="boot-bar">
+                  <div className="boot-bar-fill" style={{ width: `${backendProgress}%` }} />
+                </div>
+                <span className="boot-pct">{Math.round(backendProgress)}%</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       <aside className="sidebar">
 
         {/* Header */}

@@ -19,4 +19,5 @@ src-tauri/target/
 # Editor
 .idea/
 .vscode/
-backend/places.db
+# SQLite DB is created at runtime next to whichever backend is running
+places.db
