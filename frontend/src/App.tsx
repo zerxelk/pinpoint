@@ -371,9 +371,11 @@ function App() {
   useEffect(() => {
     if (!backendReady) return;
     refreshStatus();
-    const id = setInterval(refreshStatus, 3000);
+    // Poll faster while a tunnel is coming up so the dot lights the moment the
+    // phone pairs, instead of lagging behind the slow idle poll.
+    const id = setInterval(refreshStatus, tunnelWaiting ? 1000 : 3000);
     return () => clearInterval(id);
-  }, [backendReady]);
+  }, [backendReady, tunnelWaiting]);
 
   async function fetchPlaces() {
     try {
@@ -470,8 +472,9 @@ function App() {
       const data: { ok: boolean } = await fetch(`${API}/tunnel/start`, { method: "POST" }).then(r => r.json());
       if (data.ok) {
         setTunnelWaiting(true);
-        // Auto-clear if tunnel never comes up within 15s
-        tunnelWaitTimerRef.current = setTimeout(() => setTunnelWaiting(false), 15000);
+        // Give up the "connecting" state if the phone never pairs — device
+        // discovery + RSD handshake can run long, so allow a generous window.
+        tunnelWaitTimerRef.current = setTimeout(() => setTunnelWaiting(false), 30000);
       }
     } catch {}
     setTunnelStarting(false);
@@ -586,7 +589,15 @@ function App() {
     setRouteStarting(false);
   }
 
-  const tunnelDot = appStatus?.device_connected ? "dot green pulse" : "dot";
+  // tunneld can be up (tunnel_connected) well before it finishes pairing the
+  // phone (device_connected) — surface that in-between as an amber "connecting"
+  // state instead of leaving the dot dark until it suddenly goes green.
+  const tunnelConnecting = tunnelStarting || (tunnelWaiting && !appStatus?.device_connected);
+  const tunnelDot = appStatus?.device_connected
+    ? "dot green pulse"
+    : tunnelConnecting
+      ? "dot amber pulse"
+      : "dot";
   const sectionMotion = (i: number) => ({
     initial: { opacity: 0, y: 12 },
     animate: { opacity: 1, y: 0 },
@@ -684,6 +695,11 @@ function App() {
               </motion.button>
             )}
           </div>
+          {tunnelConnecting && (
+            <div className="tunnel-bar" aria-hidden="true">
+              <div className="tunnel-bar-fill" />
+            </div>
+          )}
           <div className="status-row">
             <span className={spoofingAt ? "dot green pulse" : "dot"} />
             <span className="status-label">

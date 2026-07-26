@@ -164,6 +164,28 @@
   50% { opacity: 0.25; }
 }
 
+/* indeterminate "tunnel connecting" bar */
+.tunnel-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+  margin-top: -4px;
+}
+
+.tunnel-bar-fill {
+  height: 100%;
+  width: 38%;
+  border-radius: 2px;
+  background: var(--amber);
+  animation: tunnel-indeterminate 1.15s ease-in-out infinite;
+}
+
+@keyframes tunnel-indeterminate {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(370%); }
+}
+
 
 /* ── Search ─────────────────────────────────────────── */
 
