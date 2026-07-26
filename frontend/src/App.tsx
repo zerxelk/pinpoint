@@ -525,7 +525,7 @@ function App() {
         <div className="boot-overlay">
           <div className="boot-card">
             <span className="boot-logo"><PinIcon /></span>
-            <h2 className="boot-title">Pinpoint</h2>
+            <h2 className="boot-title">Mirage</h2>
             {backendFailed ? (
               <>
                 <p className="boot-error">
@@ -553,7 +553,7 @@ function App() {
         {/* Header */}
         <header className="sidebar-header">
           <span className="logo"><PinIcon /></span>
-          <h1>Pinpoint</h1>
+          <h1>Mirage</h1>
         </header>
 
         {/* Status */}

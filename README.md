@@ -1,11 +1,11 @@
-# Pinpoint
+# Mirage
 
 A macOS desktop app for spoofing the GPS location of a USB-connected iOS device.
 Click anywhere on a map to beam your iPhone there, save favourite spots, or draw a
 route and have the device "walk", "bike", or "drive" it in real time.
 
 > [!WARNING]
-> Pinpoint is for development, testing, and personal use on devices you own.
+> Mirage is for development, testing, and personal use on devices you own.
 > Spoofing location to deceive apps, services, or people may violate their terms of
 > service or local law. Use responsibly.
 
@@ -19,7 +19,7 @@ route and have the device "walk", "bike", or "drive" it in real time.
 
 ## How it works
 
-Pinpoint is three layers glued together by a Tauri shell:
+Mirage is three layers glued together by a Tauri shell:
 
 ```
 frontend/src/          React + TypeScript UI (Leaflet / OpenStreetMap)
@@ -80,9 +80,9 @@ This binary is **not committed to the repo** — build it locally before your fi
 ```bash
 cd backend
 source venv/bin/activate
-pyinstaller pinpoint-backend.spec
-cp dist/pinpoint-backend \
-  ../frontend/src-tauri/binaries/pinpoint-backend-aarch64-apple-darwin
+pyinstaller mirage-backend.spec
+cp dist/mirage-backend \
+  ../frontend/src-tauri/binaries/mirage-backend-aarch64-apple-darwin
 ```
 
 Then build the app bundle:

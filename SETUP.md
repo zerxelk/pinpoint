@@ -61,11 +61,11 @@ The Tauri app doesn't run the Python source directly — it spawns a compiled bi
 ```bash
 cd backend
 source venv/bin/activate
-pyinstaller pinpoint-backend.spec
-cp dist/pinpoint-backend frontend/src-tauri/binaries/pinpoint-backend-aarch64-apple-darwin
+pyinstaller mirage-backend.spec
+cp dist/mirage-backend frontend/src-tauri/binaries/mirage-backend-aarch64-apple-darwin
 ```
 
-(Confirm the exact `dist/` output name/path matches your `pinpoint-backend.spec` — adjust the `cp` if it differs.)
+(Confirm the exact `dist/` output name/path matches your `mirage-backend.spec` — adjust the `cp` if it differs.)
 
 ## Production build
 

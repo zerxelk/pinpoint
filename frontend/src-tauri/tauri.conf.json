@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "pinpoint",
+  "productName": "Mirage",
   "version": "0.1.0",
-  "identifier": "com.pinpoint.dev",
+  "identifier": "com.mirage.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "PinPoint",
+        "title": "Mirage",
         "width": 800,
         "height": 600,
         "resizable": true,
@@ -24,7 +24,7 @@
     }
   },
   "bundle": {
-    "externalBin": ["binaries/pinpoint-backend"],
+    "externalBin": ["binaries/mirage-backend"],
     "active": true,
     "targets": "all",
     "icon": [

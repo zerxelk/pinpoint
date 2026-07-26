@@ -27,7 +27,7 @@ pub fn run() {
 
             let sidecar = app
                 .shell()
-                .sidecar("pinpoint-backend")
+                .sidecar("mirage-backend")
                 .expect("failed to create backend sidecar");
             let (mut rx, child) = sidecar.spawn().expect("failed to spawn backend");
             *app.state::<BackendProcess>().0.lock().unwrap() = Some(child);

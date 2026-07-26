@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
 PMD3 = "/Users/daniel/pinpoint-tunnel/bin/pymobiledevice3"
-LOG_DIR = pathlib.Path.home() / "Library" / "Logs" / "Pinpoint"
+LOG_DIR = pathlib.Path.home() / "Library" / "Logs" / "Mirage"
 TUNNELD_PID_FILE = LOG_DIR / "tunneld.pid"
 
 # Average human/vehicle speeds used to space out timestamps on a route's GPX
