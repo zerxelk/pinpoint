@@ -13,6 +13,10 @@ build/
 # Tauri
 src-tauri/target/
 
+# Bundled PyInstaller backend binary — build it locally, don't commit it.
+# See the README for the PyInstaller build + copy step.
+frontend/src-tauri/binaries/pinpoint-backend-aarch64-apple-darwin
+
 # macOS
 .DS_Store
 

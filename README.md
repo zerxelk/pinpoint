@@ -74,7 +74,8 @@ npm run tauri dev    # Full app with hot reload — spawns the backend sidecar
 ### Production build
 
 The backend is bundled as a PyInstaller binary that the Tauri app ships as a sidecar.
-After any backend change, rebuild it and copy it into place:
+This binary is **not committed to the repo** — build it locally before your first
+`tauri build` (and again after any backend change), then copy it into place:
 
 ```bash
 cd backend
