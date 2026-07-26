@@ -38,7 +38,9 @@
 }
 
 .logo { color: var(--accent); display: flex; }
-.mk { display: block; }
+/* overflow:visible so the pin isn't clipped by the SVG's viewBox edge when it
+   bobs upward during the loading animation. */
+.mk { display: block; overflow: visible; }
 
 .sidebar-header h1 {
   font-family: var(--font-mono);
