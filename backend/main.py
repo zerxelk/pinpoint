@@ -8,6 +8,7 @@ import pathlib
 import sys
 import tempfile
 import threading
+import traceback
 import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -49,21 +50,53 @@ _init_db()
 
 app = FastAPI()
 
+# The webview's origins: tauri://localhost / http://tauri.localhost in a production
+# build, http://localhost:5173 under `tauri dev` (which loads the live Vite server).
+ALLOWED_ORIGINS = {"tauri://localhost", "http://tauri.localhost", "http://localhost:5173"}
+# The only Host values our loopback bind legitimately answers to. Anything else
+# means the request arrived via a hostname that merely resolves to 127.0.0.1.
+ALLOWED_HOSTS = {"127.0.0.1:8765", "localhost:8765"}
+STATE_CHANGING = {"POST", "PUT", "PATCH", "DELETE"}
+
 app.add_middleware(
     CORSMiddleware,
-    # tauri://localhost / http://tauri.localhost: the webview's origin in a
-    # production build. http://localhost:5173: the webview's origin under
-    # `tauri dev`, which loads devUrl (the live Vite server) directly instead.
-    allow_origins=["tauri://localhost", "http://tauri.localhost", "http://localhost:5173"],
+    allow_origins=list(ALLOWED_ORIGINS),
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def csrf_and_rebind_guard(request: Request, call_next):
+    # CORS only stops a browser from *reading* a cross-origin response — it does
+    # not stop the request from reaching us and taking effect. Since this API
+    # controls a device and can trigger an admin password prompt, enforce two
+    # checks the browser can't spoof from a foreign page:
+
+    # 1. Anti DNS-rebinding: reject any Host that isn't our loopback bind. A page
+    #    on attacker.com that rebinds its DNS to 127.0.0.1 still sends its own
+    #    hostname in Host, so this blocks it (and with it, CORS-bypass reads).
+    if request.headers.get("host", "") not in ALLOWED_HOSTS:
+        return JSONResponse(status_code=403, content={"detail": "Forbidden host"})
+
+    # 2. Anti-CSRF: for state-changing methods, reject a foreign browser Origin.
+    #    Browsers always attach Origin to POST/PUT/PATCH/DELETE, so a malicious
+    #    page can't omit it; requests with no Origin are local non-browser
+    #    callers (which already have full run of the machine anyway).
+    if request.method in STATE_CHANGING:
+        origin = request.headers.get("origin")
+        if origin is not None and origin not in ALLOWED_ORIGINS:
+            return JSONResponse(status_code=403, content={"detail": "Forbidden origin"})
+
+    return await call_next(request)
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
     # Without this, unhandled exceptions escape to ServerErrorMiddleware (outermost),
     # which sends a plain-text 500 that never passes through CORSMiddleware.
-    return JSONResponse(status_code=500, content={"detail": str(exc)})
+    # Log the real error server-side (Tauri pipes our stderr), but return a
+    # generic message — don't leak internal exception text to the client.
+    traceback.print_exc()
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 #Module-level "memory": holds the running spoof process between requests. Starts as None=nothing is being spoofed right now.
 current_spoof = None
