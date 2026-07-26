@@ -108,3 +108,7 @@ frontend/src-tauri/    Tauri Rust shell + bundled backend binary
 - **Frontend:** React, TypeScript, Vite, Leaflet, Oxlint
 - **Backend:** Python, FastAPI, Uvicorn, pymobiledevice3, gpxpy, SQLite
 - **Shell:** Tauri 2 (Rust)
+
+## License
+
+Released under the [MIT License](LICENSE).
