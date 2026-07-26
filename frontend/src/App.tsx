@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { motion, AnimatePresence } from "motion/react";
+import { animate as animeAnimate, stagger as animeStagger } from "animejs";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
@@ -26,6 +28,9 @@ type RouteSpeed = "walk" | "bike" | "drive";
 
 const ROUTE_SPEEDS_MPS: Record<RouteSpeed, number> = { walk: 1.4, bike: 4.0, drive: 15.0 };
 
+// Shared easing curve (easeOutQuint-ish) — typed as a 4-tuple so motion accepts it.
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
 function haversineMeters(a: LatLon, b: LatLon): number {
   const R = 6371000;
   const toRad = (d: number) => (d * Math.PI) / 180;
@@ -36,12 +41,6 @@ function haversineMeters(a: LatLon, b: LatLon): number {
     Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-
-const PinIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-  </svg>
-);
 
 const SearchIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -63,12 +62,47 @@ const TrashIcon = () => (
   </svg>
 );
 
+// The Mirage mark: a location pin (with a punched hole) floating over three
+// "shimmer" reflection bands — a nod to a desert mirage. Reused as the header
+// logo (monochrome) and, animated, on the loading screen (gradient).
+const MirageMark = ({ size = 22, gradient = false }: { size?: number; gradient?: boolean }) => (
+  <svg
+    width={size}
+    height={size * (66 / 48)}
+    viewBox="0 0 48 66"
+    fill="none"
+    className={gradient ? "mk mk-gradient" : "mk"}
+  >
+    {gradient && (
+      <defs>
+        <linearGradient id="mkGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#818cf8" />
+          <stop offset="100%" stopColor="#c084fc" />
+        </linearGradient>
+      </defs>
+    )}
+    <g className="mk-pin" fill={gradient ? "url(#mkGrad)" : "currentColor"}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M24 4C15.7 4 9 10.7 9 19c0 10.5 15 30 15 30s15-19.5 15-30C39 10.7 32.3 4 24 4Zm0 9a6 6 0 1 0 0 12 6 6 0 0 0 0-12Z"
+      />
+    </g>
+    <g className="mk-shimmer" fill={gradient ? "url(#mkGrad)" : "currentColor"}>
+      <rect className="mk-band" x="12" y="53" width="24" height="3" rx="1.5" opacity="0.55" />
+      <rect className="mk-band" x="16" y="58.5" width="16" height="2.8" rx="1.4" opacity="0.38" />
+      <rect className="mk-band" x="19.5" y="63" width="9" height="2.5" rx="1.25" opacity="0.24" />
+    </g>
+  </svg>
+);
+
 function App() {
   const mapDiv = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const bootMarkRef = useRef<HTMLDivElement>(null);
 
   const [coords, setCoords] = useState({ lat: 28.6139, lon: 77.209 });
   const [query, setQuery] = useState("");
@@ -299,6 +333,41 @@ function App() {
     setRetryKey((k) => k + 1);
   }
 
+  // Animate the loading-screen mark with anime.js: the pin gently bobs while the
+  // shimmer bands ripple in sequence, evoking a mirage. Runs only while the boot
+  // overlay is on screen.
+  useEffect(() => {
+    if (backendReady || backendFailed) return;
+    const root = bootMarkRef.current;
+    if (!root) return;
+    const pin = root.querySelector<SVGGElement>(".mk-pin");
+    const bands = root.querySelectorAll<SVGRectElement>(".mk-band");
+    const anims: Array<{ pause: () => void }> = [];
+    if (pin) {
+      anims.push(
+        animeAnimate(pin, {
+          translateY: [0, -7, 0],
+          duration: 2200,
+          ease: "inOutSine",
+          loop: true,
+        }) as unknown as { pause: () => void }
+      );
+    }
+    if (bands.length) {
+      anims.push(
+        animeAnimate(bands, {
+          opacity: [0.2, 0.8, 0.2],
+          scaleX: [0.82, 1.06, 0.82],
+          delay: animeStagger(190),
+          duration: 2200,
+          ease: "inOutSine",
+          loop: true,
+        }) as unknown as { pause: () => void }
+      );
+    }
+    return () => anims.forEach((a) => a.pause?.());
+  }, [backendReady, backendFailed, retryKey]);
+
   useEffect(() => {
     if (!backendReady) return;
     refreshStatus();
@@ -517,74 +586,115 @@ function App() {
     setRouteStarting(false);
   }
 
-  const tunnelDot = appStatus?.device_connected ? "dot green" : "dot";
+  const tunnelDot = appStatus?.device_connected ? "dot green pulse" : "dot";
+  const sectionMotion = (i: number) => ({
+    initial: { opacity: 0, y: 12 },
+    animate: { opacity: 1, y: 0 },
+    transition: { delay: 0.06 + i * 0.07, duration: 0.45, ease: EASE },
+  });
 
   return (
     <div className="app">
-      {!backendReady && (
-        <div className="boot-overlay">
-          <div className="boot-card">
-            <span className="boot-logo"><PinIcon /></span>
-            <h2 className="boot-title">Mirage</h2>
-            {backendFailed ? (
-              <>
-                <p className="boot-error">
-                  The engine didn’t start in time. It may have failed to launch —
-                  try again, or restart the app.
-                </p>
-                <button className="btn btn-primary boot-retry" onClick={retryBackend}>
-                  Retry
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="boot-status">Starting engine…</p>
-                <div className="boot-bar">
-                  <div className="boot-bar-fill" style={{ width: `${backendProgress}%` }} />
-                </div>
-                <span className="boot-pct">{Math.round(backendProgress)}%</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {!backendReady && (
+          <motion.div
+            className="boot-overlay"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+          >
+            <div className="boot-glow" />
+            <motion.div
+              className="boot-card"
+              initial={{ opacity: 0, scale: 0.92, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: EASE }}
+            >
+              <div className="boot-mark" ref={bootMarkRef}>
+                <MirageMark size={72} gradient />
+              </div>
+              <h2 className="boot-title">Mirage</h2>
+              {backendFailed ? (
+                <>
+                  <p className="boot-error">
+                    The engine didn’t start in time. It may have failed to launch —
+                    try again, or restart the app.
+                  </p>
+                  <motion.button
+                    className="btn btn-primary boot-retry"
+                    onClick={retryBackend}
+                    whileTap={{ scale: 0.96 }}
+                  >
+                    Retry
+                  </motion.button>
+                </>
+              ) : (
+                <>
+                  <p className="boot-status">Starting engine…</p>
+                  <div className="boot-bar">
+                    <motion.div
+                      className="boot-bar-fill"
+                      animate={{ width: `${backendProgress}%` }}
+                      transition={{ ease: "easeOut", duration: 0.25 }}
+                    />
+                  </div>
+                  <span className="boot-pct">{Math.round(backendProgress)}%</span>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <aside className="sidebar">
+        <div className="sidebar-glow" />
 
         {/* Header */}
-        <header className="sidebar-header">
-          <span className="logo"><PinIcon /></span>
+        <motion.header
+          className="sidebar-header"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <span className="logo"><MirageMark size={20} /></span>
           <h1>Mirage</h1>
-        </header>
+        </motion.header>
 
         {/* Status */}
-        <section className="status-section">
+        <motion.section className="status-section" {...sectionMotion(0)}>
           <div className="status-row">
             <span className={tunnelDot} />
             <span className="status-label">Tunnel</span>
             {appStatus?.tunnel_connected ? (
-              <button className="tunnel-start-btn" onClick={stopTunnel} disabled={tunnelStopping}>
+              <motion.button
+                className="tunnel-start-btn"
+                onClick={stopTunnel}
+                disabled={tunnelStopping}
+                whileTap={{ scale: 0.95 }}
+              >
                 {tunnelStopping ? "Stopping…" : "Stop"}
-              </button>
+              </motion.button>
             ) : (
-              <button
+              <motion.button
                 className="tunnel-start-btn"
                 onClick={startTunnel}
                 disabled={tunnelStarting || tunnelWaiting}
+                whileTap={{ scale: 0.95 }}
               >
                 {tunnelStarting ? "Starting…" : tunnelWaiting ? "Connecting…" : "Start"}
-              </button>
+              </motion.button>
             )}
           </div>
           <div className="status-row">
-            <span className={spoofingAt ? "dot green" : "dot"} />
+            <span className={spoofingAt ? "dot green pulse" : "dot"} />
             <span className="status-label">
               {spoofingAt ? `Spoofing: ${spoofingAt}` : "Real GPS"}
             </span>
           </div>
-        </section>
+        </motion.section>
 
         {/* Search */}
-        <section className="search-section" ref={searchRef}>
+        <motion.section className="search-section" ref={searchRef} {...sectionMotion(1)}>
           <div className="search-wrap">
             <span className="search-icon"><SearchIcon /></span>
             <input
@@ -606,55 +716,80 @@ function App() {
             </div>
           )}
           {searchError && <p className="search-error">{searchError}</p>}
-        </section>
+        </motion.section>
 
         {/* Actions */}
-        <section className="actions-section">
+        <motion.section className="actions-section" {...sectionMotion(2)}>
           <div className="coords-display">
+            <span className="coords-dot" />
             {coords.lat.toFixed(5)}, {coords.lon.toFixed(5)}
           </div>
           <div className="btn-row">
-            <button className="btn btn-primary" onClick={() => spoof()}>Beam here</button>
-            <button className="btn btn-ghost" onClick={unspoof}>Stop</button>
-          </div>
-          {!showSaveInput ? (
-            <button
-              className="btn btn-outline"
-              onClick={() => { setShowSaveInput(true); setSaveName(""); }}
+            <motion.button
+              className="btn btn-primary"
+              onClick={() => spoof()}
+              whileTap={{ scale: 0.96 }}
+              whileHover={{ y: -1 }}
             >
-              Save pin…
-            </button>
-          ) : (
-            <div className="save-form">
-              <input
-                className="save-input"
-                value={saveName}
-                onChange={(e) => setSaveName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && savePlace()}
-                placeholder="Place name"
-                autoFocus
-              />
-              <div className="save-form-btns">
-                <button className="btn btn-primary btn-sm" onClick={savePlace}>Save</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => setShowSaveInput(false)}>Cancel</button>
-              </div>
-            </div>
-          )}
-          <div className="reset-row">
-            <button className="btn-reset" onClick={resetAll}>Stop Everything</button>
+              Beam here
+            </motion.button>
+            <motion.button className="btn btn-ghost" onClick={unspoof} whileTap={{ scale: 0.96 }}>
+              Stop
+            </motion.button>
           </div>
-        </section>
+          <AnimatePresence mode="wait" initial={false}>
+            {!showSaveInput ? (
+              <motion.button
+                key="savebtn"
+                className="btn btn-outline"
+                onClick={() => { setShowSaveInput(true); setSaveName(""); }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Save pin…
+              </motion.button>
+            ) : (
+              <motion.div
+                key="saveform"
+                className="save-form"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <input
+                  className="save-input"
+                  value={saveName}
+                  onChange={(e) => setSaveName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && savePlace()}
+                  placeholder="Place name"
+                  autoFocus
+                />
+                <div className="save-form-btns">
+                  <motion.button className="btn btn-primary btn-sm" onClick={savePlace} whileTap={{ scale: 0.95 }}>Save</motion.button>
+                  <motion.button className="btn btn-ghost btn-sm" onClick={() => setShowSaveInput(false)} whileTap={{ scale: 0.95 }}>Cancel</motion.button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div className="reset-row">
+            <motion.button className="btn-reset" onClick={resetAll} whileTap={{ scale: 0.98 }}>Stop Everything</motion.button>
+          </div>
+        </motion.section>
 
         {/* Route */}
-        <section className="route-section">
+        <motion.section className="route-section" {...sectionMotion(3)}>
           <div className="route-header">
             <span>Route</span>
-            <button
+            <motion.button
               className={routeMode ? "route-draw-btn active" : "route-draw-btn"}
               onClick={toggleRouteMode}
+              whileTap={{ scale: 0.95 }}
             >
               {routeMode ? "Drawing…" : "Draw"}
-            </button>
+            </motion.button>
           </div>
 
           {routePoints.length === 0 ? (
@@ -672,8 +807,8 @@ function App() {
               </div>
               {routeError && <p className="search-error">{routeError}</p>}
               <div className="btn-row">
-                <button className="btn btn-ghost btn-sm" onClick={undoRoutePoint}>Undo</button>
-                <button className="btn btn-ghost btn-sm" onClick={clearRoute}>Clear</button>
+                <motion.button className="btn btn-ghost btn-sm" onClick={undoRoutePoint} whileTap={{ scale: 0.95 }}>Undo</motion.button>
+                <motion.button className="btn btn-ghost btn-sm" onClick={clearRoute} whileTap={{ scale: 0.95 }}>Clear</motion.button>
               </div>
               <div className="speed-row">
                 {(["walk", "bike", "drive"] as const).map((s) => (
@@ -682,23 +817,31 @@ function App() {
                     className={routeSpeed === s ? "speed-btn active" : "speed-btn"}
                     onClick={() => setRouteSpeed(s)}
                   >
-                    {s[0].toUpperCase() + s.slice(1)}
+                    {routeSpeed === s && (
+                      <motion.span
+                        layoutId="speedPill"
+                        className="speed-pill"
+                        transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                      />
+                    )}
+                    <span className="speed-label">{s[0].toUpperCase() + s.slice(1)}</span>
                   </button>
                 ))}
               </div>
-              <button
+              <motion.button
                 className="btn btn-primary"
                 disabled={!routeGeometry || routeGeometry.length < 2 || routeStarting}
                 onClick={startRoute}
+                whileTap={{ scale: 0.96 }}
               >
                 {routeStarting ? "Starting…" : "Start Route"}
-              </button>
+              </motion.button>
             </>
           )}
-        </section>
+        </motion.section>
 
         {/* Saved places */}
-        <section className="places-section">
+        <motion.section className="places-section" {...sectionMotion(4)}>
           <div className="places-header">
             <span>Saved Places</span>
             {places.length > 0 && <span className="places-count">{places.length}</span>}
@@ -707,33 +850,45 @@ function App() {
             <p className="places-empty">No saved places yet.</p>
           ) : (
             <ul className="places-list">
-              {places.map((p) => (
-                <li key={p.id} className="place-item">
-                  <div className="place-info" onClick={() => goToPlace(p)}>
-                    <span className="place-name">{p.name}</span>
-                    <span className="place-coords">
-                      {p.lat.toFixed(4)}, {p.lon.toFixed(4)}
-                    </span>
-                  </div>
-                  <button
-                    className="icon-btn beam"
-                    title="Beam here"
-                    onClick={() => { goToPlace(p); spoof(p.lat, p.lon, p.name); }}
+              <AnimatePresence initial={false}>
+                {places.map((p, i) => (
+                  <motion.li
+                    key={p.id}
+                    className="place-item"
+                    layout
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 12, height: 0 }}
+                    transition={{ delay: i * 0.035, duration: 0.3, ease: EASE }}
                   >
-                    <TargetIcon />
-                  </button>
-                  <button
-                    className="icon-btn delete"
-                    title="Delete"
-                    onClick={() => deletePlace(p.id)}
-                  >
-                    <TrashIcon />
-                  </button>
-                </li>
-              ))}
+                    <div className="place-info" onClick={() => goToPlace(p)}>
+                      <span className="place-name">{p.name}</span>
+                      <span className="place-coords">
+                        {p.lat.toFixed(4)}, {p.lon.toFixed(4)}
+                      </span>
+                    </div>
+                    <motion.button
+                      className="icon-btn beam"
+                      title="Beam here"
+                      onClick={() => { goToPlace(p); spoof(p.lat, p.lon, p.name); }}
+                      whileTap={{ scale: 0.88 }}
+                    >
+                      <TargetIcon />
+                    </motion.button>
+                    <motion.button
+                      className="icon-btn delete"
+                      title="Delete"
+                      onClick={() => deletePlace(p.id)}
+                      whileTap={{ scale: 0.88 }}
+                    >
+                      <TrashIcon />
+                    </motion.button>
+                  </motion.li>
+                ))}
+              </AnimatePresence>
             </ul>
           )}
-        </section>
+        </motion.section>
 
       </aside>
 

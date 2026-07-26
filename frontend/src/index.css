@@ -10,7 +10,13 @@
   --surface-hover: #1a1a23;
   --border:        #222229;
   --accent:        #818cf8;
+  --accent-2:      #c084fc;
   --accent-dim:    rgba(129, 140, 248, 0.12);
+  --grad:          linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+  --grad-soft:     linear-gradient(135deg, rgba(129,140,248,0.16) 0%, rgba(192,132,252,0.16) 100%);
+  --glass:         rgba(255, 255, 255, 0.035);
+  --glass-2:       rgba(255, 255, 255, 0.055);
+  --glass-border:  rgba(255, 255, 255, 0.08);
   --text:          #e2e2f0;
   --text-2:        #8888a0;
   --text-3:        #44445a;
