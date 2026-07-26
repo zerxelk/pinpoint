@@ -214,9 +214,9 @@ function App() {
     routePoints.forEach((p) => {
       L.circleMarker([p.lat, p.lon], {
         radius: 5,
-        color: "#818cf8",
+        color: "#9db668",
         weight: 2,
-        fillColor: "#818cf8",
+        fillColor: "#9db668",
         fillOpacity: 1,
       }).addTo(layer);
     });
@@ -225,7 +225,7 @@ function App() {
       L.polyline(
         path.map((p) => [p.lat, p.lon] as [number, number]),
         {
-          color: "#818cf8",
+          color: "#9db668",
           weight: routeGeometry ? 4 : 2,
           opacity: routeGeometry ? 0.85 : 0.45,
           dashArray: routeGeometry ? undefined : "6 6",
@@ -611,7 +611,7 @@ function App() {
               transition={{ duration: 0.55, ease: EASE }}
             >
               <div className="boot-mark" ref={bootMarkRef}>
-                <MirageMark size={72} gradient />
+                <MirageMark size={72} />
               </div>
               <h2 className="boot-title">Mirage</h2>
               {backendFailed ? (
@@ -647,7 +647,6 @@ function App() {
       </AnimatePresence>
 
       <aside className="sidebar">
-        <div className="sidebar-glow" />
 
         {/* Header */}
         <motion.header
@@ -721,8 +720,8 @@ function App() {
         {/* Actions */}
         <motion.section className="actions-section" {...sectionMotion(2)}>
           <div className="coords-display">
-            <span className="coords-dot" />
-            {coords.lat.toFixed(5)}, {coords.lon.toFixed(5)}
+            <span className="coords-label">Current coordinates</span>
+            <span className="coords-value">{coords.lat.toFixed(5)}, {coords.lon.toFixed(5)}</span>
           </div>
           <div className="btn-row">
             <motion.button
