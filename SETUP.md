@@ -22,10 +22,10 @@ pip install -r requirements.txt
 `backend/main.py` hardcodes the path to the `pymobiledevice3` binary:
 
 ```python
-PMD3 = "/Users/daniel/pinpoint-tunnel/bin/pymobiledevice3"
+PMD3 = "/Users/daniel/Developer/Mirage/backend/venv/bin/pymobiledevice3"
 ```
 
-Update this to point at your own venv's `pymobiledevice3` (e.g. `backend/venv/bin/pymobiledevice3`) if it differs, or create a venv at that exact path.
+Update this to point at your own venv's `pymobiledevice3` if your checkout lives somewhere else.
 
 Run the backend standalone for development:
 
@@ -86,6 +86,23 @@ USB is only required for the first connection (to pair/trust the device). `remot
    - Run `./Start\ Tunnel.command` from the repo root (also prompts for `sudo`).
 3. `GET /status` (or the app's status indicator) should report `tunnel_connected: true` once `remote tunneld` is up on port 49151.
 4. Pick a location on the map and spoof — `/devices` should list the connected phone first if things aren't working.
+
+## Permissions
+
+`remote tunneld` runs elevated (via `osascript ... with administrator privileges`). macOS's
+TCC privacy protection blocks *any* elevated process — regardless of app — from reading files
+under `~/Desktop`, `~/Documents`, `~/Downloads`, or iCloud Drive, even as root. If your checkout
+(or your `pymobiledevice3` venv) lives under one of those folders, tunnel start will fail with
+a `PermissionError` reading a file inside it, even though the path is otherwise correct.
+
+Two ways to fix it:
+
+- **Move the checkout** somewhere outside those folders (e.g. `~/Developer/Mirage`) — no
+  permission grant needed, works for anyone.
+- **Grant Full Disk Access** instead, if you want to keep it where it is: System Settings →
+  Privacy & Security → Full Disk Access → add the app that spawns the elevated process
+  (`Mirage.app` for the built app; `Terminal.app` or your terminal emulator if you're running
+  via `npm run tauri dev`) and enable it.
 
 ## Gotchas
 

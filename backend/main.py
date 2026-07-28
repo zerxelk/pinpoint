@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
-PMD3 = "/Users/daniel/pinpoint-tunnel/bin/pymobiledevice3"
+PMD3 = "/Users/daniel/Developer/Mirage/backend/venv/bin/pymobiledevice3"
 LOG_DIR = pathlib.Path.home() / "Library" / "Logs" / "Mirage"
 TUNNELD_PID_FILE = LOG_DIR / "tunneld.pid"
 

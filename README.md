@@ -44,6 +44,13 @@ provides the tunnel the backend needs to actually reach the device.
 - [`pymobiledevice3`](https://github.com/doronz88/pymobiledevice3) installed in a virtualenv
 - An iOS device connected over USB with Developer Mode enabled
 
+> [!IMPORTANT]
+> If your checkout lives under `~/Desktop`, `~/Documents`, `~/Downloads`, or iCloud
+> Drive, macOS blocks the elevated tunnel process from reading files there — the tunnel
+> will fail to start. Either keep the checkout somewhere else (e.g. `~/Developer`), or
+> grant **Full Disk Access** to Mirage in System Settings → Privacy & Security →
+> Full Disk Access.
+
 ## Getting started
 
 ### Backend
