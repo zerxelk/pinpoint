@@ -45,6 +45,7 @@ def _init_db():
                 lon  REAL NOT NULL
             )
         """)
+    os.chmod(DB, 0o600)
 
 _init_db()
 
