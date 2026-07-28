@@ -7,14 +7,17 @@ macOS only. Requires a USB-connected iOS device to actually spoof anything.
 - macOS (uses `osascript` for the admin-privilege prompt)
 - Node.js + npm
 - Rust toolchain (for Tauri) — `rustup`
-- Python 3 with a `venv`
+- Python 3.10 specifically — `backend/requirements.txt` pins exact package versions frozen
+  against 3.10, so creating the venv with a different minor version (e.g. Homebrew's default
+  `python3`, which may point at 3.13/3.14) can fail to resolve them. Use `python3.10`
+  explicitly, or check `which -a python3` first to confirm it resolves to 3.10.
 - Xcode Command Line Tools (`xcode-select --install`) — needed for Tauri's native build
 
 ## Backend
 
 ```bash
 cd backend
-python3 -m venv venv
+python3.10 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -61,6 +64,7 @@ The Tauri app doesn't run the Python source directly — it spawns a compiled bi
 ```bash
 cd backend
 source venv/bin/activate
+pip install pyinstaller   # not in requirements.txt — it's a build tool, not a runtime dep
 pyinstaller mirage-backend.spec
 cp dist/mirage-backend frontend/src-tauri/binaries/mirage-backend-aarch64-apple-darwin
 ```
@@ -109,4 +113,8 @@ Two ways to fix it:
 - The `PMD3` path in `backend/main.py` is hardcoded — see above.
 - Forgetting to rebuild + copy the PyInstaller binary after a backend change means `tauri dev`/`tauri build` will run stale backend code.
 - `backend/places.db` is gitignored and created on first run next to the binary — don't expect it to exist in a fresh checkout.
-- Per the latest commit message, app-quit cleanup currently has a bug causing an infinite reset loop — worth watching for during dev.
+- **If you move or rename the project folder**, `frontend/src-tauri/target` keeps cached build
+  scripts with the old absolute path baked in, which breaks the next `tauri build` with a
+  confusing `failed to read plugin permissions ... No such file or directory` error pointing at
+  the old location. Fix: `rm -rf frontend/src-tauri/target/release/build` (or wipe the whole
+  `target/` dir for a fully clean rebuild) before building again.

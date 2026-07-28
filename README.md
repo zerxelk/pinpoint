@@ -40,7 +40,8 @@ provides the tunnel the backend needs to actually reach the device.
 - macOS on Apple Silicon (`aarch64`)
 - [Node.js](https://nodejs.org/) 18+
 - [Rust](https://www.rust-lang.org/tools/install) (stable toolchain)
-- Python 3.11+
+- Python 3.10 (`backend/requirements.txt` pins exact versions frozen against 3.10 — other
+  minor versions may fail to resolve them)
 - [`pymobiledevice3`](https://github.com/doronz88/pymobiledevice3) installed in a virtualenv
 - An iOS device connected over USB with Developer Mode enabled
 
@@ -87,6 +88,7 @@ This binary is **not committed to the repo** — build it locally before your fi
 ```bash
 cd backend
 source venv/bin/activate
+pip install pyinstaller   # not in requirements.txt — it's a build tool, not a runtime dep
 pyinstaller mirage-backend.spec
 cp dist/mirage-backend \
   ../frontend/src-tauri/binaries/mirage-backend-aarch64-apple-darwin
